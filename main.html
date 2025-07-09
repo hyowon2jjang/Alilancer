@@ -8,6 +8,31 @@
 <body>
     <h1 id="welcome"></h1>
     <button id="logoutBtn">로그아웃</button>
+    
+
+    <div id="requestForm">
+        <h2>Request 추가</h2>
+        <input type="text" id="title" placeholder="제목"><br>
+        <textarea id="explanation" placeholder="설명"></textarea><br>
+        <div>
+            <span>조건 선택:</span>
+            <div id="conditionList">
+            <button type="button" class="condition-btn">빠른 응답</button>
+            <button type="button" class="condition-btn">고품질</button>
+            <button type="button" class="condition-btn">저렴한 가격</button>
+            <button type="button" class="condition-btn">경험자 우대</button>
+            </div>
+            <div>선택된 조건: <span id="selectedConditions"></span></div>
+        </div>
+        <input type="number" id="payment" placeholder="결제 금액"><br>
+        <button id="addRequestBtn">Request</button>
+    </div>
+
+    <div id="requestList">
+        <h2>Request 목록</h2>
+        <ul id="requests"></ul>
+    </div>
+
     <script type="module" src="home.js"></script>
 </body>
 </html>
