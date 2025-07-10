@@ -44,6 +44,12 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const myPageBtn = document.getElementById("myPageBtn");
+  if (myPageBtn) { // Check if element exists
+    myPageBtn.addEventListener("click", function() {
+      window.location.href = "my-page.html"; // Redirect to my-page.html
+    });
+  }
 
 
   // 조건 선택 기능
@@ -74,6 +80,7 @@ if (addRequestBtn) { // Check if element exists
     const titleInput = document.getElementById('title');
     const explanationInput = document.getElementById('explanation');
     const paymentInput = document.getElementById('payment');
+    const locationInput = document.getElementById('location');
 
     if (!titleInput || !explanationInput || !paymentInput) {
       alert('페이지 요소가 로드되지 않았습니다. 새로고침 해주세요.');
@@ -83,6 +90,7 @@ if (addRequestBtn) { // Check if element exists
     const title = titleInput.value.trim();
     const explanation = explanationInput.value.trim();
     const payment = Number(paymentInput.value);
+    const location = locationInput ? locationInput.value.trim() : "위치 정보 없음"; // 위치 정보 입력 필드가 있는 경우
 
     if (!title || !explanation || selectedConditions.length === 0 || isNaN(payment) || payment <= 0) {
       alert('모든 항목을 올바르게 입력해주세요 (결제는 0보다 커야 합니다).');
@@ -91,6 +99,7 @@ if (addRequestBtn) { // Check if element exists
 
     try {
       await addDoc(collection(db, "requests"), {
+        location,
         title,
         explanation,
         conditions: selectedConditions,
@@ -150,6 +159,9 @@ if (addRequestBtn) { // Check if element exists
           <p class="text-gray-700 mb-1">${data.explanation}</p>
           <p class="text-gray-700 mb-1">
             <span class="font-medium">조건:</span> <span class="text-indigo-700">${data.conditions.join(', ')}</span>
+          </p>
+          <p class="text-gray-500 text-xs mt-2">
+            <span class="font-medium">위치:</span> ${data.location || '위치 정보 없음'}
           </p>
           <p class="text-gray-700 mb-1">
             <span class="font-medium">결제:</span> <span class="font-bold text-green-600">${data.payment}원</span>
