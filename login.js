@@ -43,8 +43,10 @@ loginForm.addEventListener("submit", async (e) => {
       userDoc.forEach((doc) => {
         username = doc.data().username;
       });
+
       // username을 localStorage에 저장
       localStorage.setItem("username", username);
+      localStorage.setItem("email", email);
 
       messageDiv.textContent = "로그인 성공!";
       window.location.href = "main.html";
