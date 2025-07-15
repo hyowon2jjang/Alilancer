@@ -30,7 +30,7 @@ const goMainBtn = document.getElementById("goMainBtn");
 const userSelect = document.getElementById("userSelect");
 const startChatBtn = document.getElementById("startChatBtn");
 
-goMainBtn.onclick = () => window.location.href = "main.html";
+goMainBtn.onclick = () => window.location.href = "index.html";
 
 let currentChatUser = null;
 let currentChatId = null;
@@ -148,7 +148,18 @@ sendBtn.onclick = async () => {
     timestamp: serverTimestamp()
   });
   messageInput.value = "";
+  openChat(currentChatUser); // 메시지 전송 후
 };
+
+// Enter 키로 메시지 전송
+messageInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const text = messageInput.value.trim();
+    if (text) {
+      sendBtn.click();
+    }
+  }
+});
 
 // 채팅 상대 목록 실시간 감시 및 하이라이트
 function watchChatUsers() {
@@ -170,6 +181,9 @@ function watchChatUsers() {
         li.style.color = "red";
       }
     });
+    // 새 메시지가 오면 채팅 상대 목록 자동 새로고침
+    loadChatUsers();
+    openChat(currentChatUser); 
   });
 }
 

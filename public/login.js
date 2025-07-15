@@ -49,7 +49,7 @@ loginForm.addEventListener("submit", async (e) => {
       localStorage.setItem("email", email);
 
       messageDiv.textContent = "로그인 성공!";
-      window.location.href = "main.html";
+      window.location.href = "index.html";
     })
     .catch((error) => {
       messageDiv.textContent = "이메일 또는 비밀번호가 올바르지 않습니다.";
