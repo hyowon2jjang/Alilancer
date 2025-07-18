@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getFirestore, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDFsqb2uS61jj4mAt7Mo2MuDKL3u97ANZM",
@@ -13,74 +14,74 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 document.getElementById('goMainBtn').onclick = function() {
-        window.location.href = "main.html";
-      };
+  window.location.href = "index.html";
+};
 
-window.addEventListener('DOMContentLoaded', async () => {
-  const email = localStorage.getItem("email");
+window.addEventListener('DOMContentLoaded', () => {
   const usernameElem = document.getElementById("username");
   const locationElem = document.getElementById("location");
+  const myRequestsUl = document.getElementById("myRequests");
 
-  if (!email) {
-    usernameElem.textContent = "로그인 정보 없음";
-    locationElem.textContent = "";
-    return;
-  }
-
-  // Firestore에서 사용자 정보(email 기준) 불러오기
-  try {
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("email", "==", email));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-      usernameElem.textContent = "사용자 정보를 찾을 수 없습니다.";
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      usernameElem.textContent = "로그인 정보 없음";
       locationElem.textContent = "";
+      window.location.href = "login.html";
       return;
     }
 
-    let userData;
-    snapshot.forEach(doc => {
-      userData = doc.data();
-    });
+    try {
+      // Firestore에서 uid로 사용자 정보 조회
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("uid", "==", user.uid));
+      const snapshot = await getDocs(q);
 
-    const username = userData.username || "이름 없음";
-    const location = userData.location || "위치 정보 없음";
+      if (snapshot.empty) {
+        usernameElem.textContent = "사용자 정보를 찾을 수 없습니다.";
+        locationElem.textContent = "";
+        myRequestsUl.innerHTML = "<li>등록한 요청이 없습니다.</li>";
+        return;
+      }
 
-    usernameElem.textContent = `사용자: ${username}`;
-    locationElem.textContent = `기본 위치: ${location} / 이메일: ${email}`;
+      const userData = snapshot.docs[0].data();
+      const username = userData.username || "이름 없음";
+      const location = userData.location || "위치 정보 없음";
+      const email = userData.email || user.email;
 
-    // Firestore에서 내가 등록한 요청만 불러오기
-    const myRequestsUl = document.getElementById("myRequests");
-    myRequestsUl.innerHTML = "불러오는 중...";
+      usernameElem.textContent = `사용자: ${username}`;
+      locationElem.textContent = `기본 위치: ${location} / 이메일: ${email}`;
 
-    const rq = query(
-      collection(db, "requests"),
-      where("username", "==", username),
-      orderBy("createdAt", "desc")
-    );
-    const reqSnapshot = await getDocs(rq);
+      // Firestore에서 내가 등록한 요청만 불러오기
+      myRequestsUl.innerHTML = "불러오는 중...";
+      const rq = query(
+        collection(db, "requests"),
+        where("username", "==", username),
+        orderBy("createdAt", "desc")
+      );
+      const reqSnapshot = await getDocs(rq);
 
-    myRequestsUl.innerHTML = "";
-    if (reqSnapshot.empty) {
-      myRequestsUl.innerHTML = "<li>등록한 요청이 없습니다.</li>";
-    } else {
-      reqSnapshot.forEach(doc => {
-        const data = doc.data();
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <strong>${data.title}</strong> (${data.payment}원)<br>
-          ${data.explanation}<br>
-          <span style="color:gray;font-size:0.9em;">${data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString() : ''}</span>
-        `;
-        myRequestsUl.appendChild(li);
-      });
+      myRequestsUl.innerHTML = "";
+      if (reqSnapshot.empty) {
+        myRequestsUl.innerHTML = "<li>등록한 요청이 없습니다.</li>";
+      } else {
+        reqSnapshot.forEach(doc => {
+          const data = doc.data();
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <strong>${data.title}</strong> (${data.payment}원)<br>
+            ${data.explanation}<br>
+            <span style="color:gray;font-size:0.9em;">${data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString() : ''}</span>
+          `;
+          myRequestsUl.appendChild(li);
+        });
+      }
+    } catch (e) {
+      usernameElem.textContent = "사용자 정보 불러오기 실패";
+      locationElem.textContent = "";
+      myRequestsUl.innerHTML = `<li>불러오기 실패: ${e.message}</li>`;
     }
-  } catch (e) {
-    usernameElem.textContent = "사용자 정보 불러오기 실패";
-    locationElem.textContent = "";
-    document.getElementById("myRequests").innerHTML = `<li>불러오기 실패: ${e.message}</li>`;
-  }
+  });
 });

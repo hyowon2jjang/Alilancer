@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import { getFirestore, collection, getDocs, query, where, addDoc, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -17,75 +17,70 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 window.addEventListener('DOMContentLoaded', () => {
-  // localStorage에서 username을 읽어와 표시
-  const username = localStorage.getItem("username");
   const welcomeElement = document.getElementById("welcome");
-  if (welcomeElement && username) {
-    welcomeElement.textContent = `환영합니다, ${username}님!`;
-  } else if (welcomeElement) {
-    welcomeElement.textContent = "환영합니다! 로그인해주세요.";
-  }
-
-  // 버튼 요소 가져오기
   const logoutBtn = document.getElementById("logoutBtn");
   const myPageBtn = document.getElementById("myPageBtn");
   const chatBtn = document.getElementById("chatBtn");
+  let currentUsername = null; // 인증된 사용자의 username 저장
 
-  // 로그인 버튼 생성 및 삽입
+  // 인증 상태 감지 및 사용자 정보 표시
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      // Firestore에서 username 조회
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("uid", "==", user.uid));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        currentUsername = snapshot.docs[0].data().username;
+        if (welcomeElement) welcomeElement.textContent = `환영합니다, ${currentUsername}님!`;
+      } else {
+        currentUsername = "알 수 없음";
+        if (welcomeElement) welcomeElement.textContent = "환영합니다!";
+      }
+      // 버튼 표시
+      if (logoutBtn) logoutBtn.style.display = "inline-block";
+      if (myPageBtn) myPageBtn.style.display = "inline-block";
+      if (loginBtn) loginBtn.style.display = "none";
+    } else {
+      currentUsername = null;
+      if (welcomeElement) welcomeElement.textContent = "환영합니다! 로그인해주세요.";
+      if (logoutBtn) logoutBtn.style.display = "none";
+      if (myPageBtn) myPageBtn.style.display = "none";
+      if (loginBtn) loginBtn.style.display = "inline-block";
+    }
+  });
+
+  // 로그인 버튼 생성 및 삽입 (기존 코드 유지)
   let loginBtn = document.getElementById("loginBtn");
   if (!loginBtn) {
     loginBtn = document.createElement("button");
     loginBtn.id = "loginBtn";
     loginBtn.textContent = "로그인";
     loginBtn.style.display = "none";
-    // logoutBtn 앞에 삽입
     if (logoutBtn) logoutBtn.parentNode.insertBefore(loginBtn, logoutBtn);
   }
-
-  // 로그인 상태에 따라 버튼 표시
-  if (username) {
-    if (logoutBtn) logoutBtn.style.display = "inline-block";
-    if (myPageBtn) myPageBtn.style.display = "inline-block";
-    loginBtn.style.display = "none";
-  } else {
-    if (logoutBtn) logoutBtn.style.display = "none";
-    if (myPageBtn) myPageBtn.style.display = "none";
-    loginBtn.style.display = "inline-block";
-  }
-
-  // 로그인 버튼 클릭 시 로그인 페이지로 이동
   loginBtn.addEventListener("click", function() {
     window.location.href = "login.html";
   });
 
-  // 로그아웃 버튼 클릭 시 username 삭제 및 로그인 페이지로 이동
-  if (logoutBtn) { // Check if element exists
+  // 로그아웃 버튼
+  if (logoutBtn) {
     logoutBtn.addEventListener("click", function() {
-      localStorage.removeItem("username");
-      // In a real app, you'd also sign out from Firebase Auth here:
       signOut(auth).then(() => {
         window.location.href = "login.html";
       }).catch((error) => {
-        console.error("Error signing out:", error);
         alert("로그아웃 중 오류가 발생했습니다.");
       });
-      window.location.href = "login.html"; // Redirect after local logout
     });
   }
 
-  if (myPageBtn) { // Check if element exists
-    myPageBtn.addEventListener("click", function() {
-      window.location.href = "my-page.html"; // Redirect to my-page.html
-    });
-  }
-
-  if (chatBtn) { // Check if element exists
-    chatBtn.addEventListener("click", function() {
-      window.location.href = "chat.html"; // Redirect to my-page.html
-    });
-  }
-
-
+  // myPageBtn, chatBtn 클릭 이벤트 (기존 코드 유지)
+  if (myPageBtn) myPageBtn.addEventListener("click", function() {
+    window.location.href = "my-page.html";
+  });
+  if (chatBtn) chatBtn.addEventListener("click", function() {
+    window.location.href = "chat.html";
+  });
 
   // 조건 선택 기능
   let selectedConditions = [];
@@ -139,7 +134,7 @@ if (addRequestBtn) { // Check if element exists
         explanation,
         conditions: selectedConditions,
         payment,
-        username: username || "익명",
+        username: currentUsername || "익명",
         createdAt: new Date()
       });
       alert('요청이 등록되었습니다!');

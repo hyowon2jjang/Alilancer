@@ -23,6 +23,7 @@ const submit = document.getElementById("submit");
 submit.addEventListener("click", (e) => {
   e.preventDefault();
   // input fields
+ 
   const username = document.getElementById("username").value;
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
@@ -31,6 +32,7 @@ submit.addEventListener("click", (e) => {
     .then((userCredential) => {
       // Add a new document in collection "users"
       setDoc(doc(db, "users", userCredential.user.uid), {
+        uid: userCredential.user.uid,
         username: username,
         email: email
       })

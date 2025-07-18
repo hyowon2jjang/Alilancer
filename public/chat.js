@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getFirestore, collection, query, where, getDocs, addDoc, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDFsqb2uS61jj4mAt7Mo2MuDKL3u97ANZM",
@@ -13,13 +14,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
-const email = localStorage.getItem("email");
-const username = localStorage.getItem("username");
-if (!email || !username) {
-  alert("로그인 후 이용 가능합니다.");
-  window.location.href = "login.html";
-}
+const auth = getAuth(app);
 
 const chatListElem = document.getElementById("chatList");
 const messagesElem = document.getElementById("messages");
@@ -32,22 +27,41 @@ const startChatBtn = document.getElementById("startChatBtn");
 
 goMainBtn.onclick = () => window.location.href = "index.html";
 
+let username = null;
 let currentChatUser = null;
 let currentChatId = null;
 let unsubscribe = null;
 
+// 인증 상태 감지 및 Firestore에서 username 조회
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    alert("로그인 후 이용 가능합니다.");
+    window.location.href = "login.html";
+    return;
+  }
+  // Firestore에서 username 조회
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("uid", "==", user.uid));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) {
+    alert("사용자 정보를 찾을 수 없습니다.");
+    window.location.href = "login.html";
+    return;
+  }
+  username = snapshot.docs[0].data().username;
+
+  // 채팅 기능 초기화
+  loadChatUsers();
+  loadAllUsers();
+  watchChatUsers();
+});
+
 // 1. 내가 대화한 사용자 목록 불러오기
 async function loadChatUsers() {
+  if (!username) return;
   chatListElem.innerHTML = "<li>불러오는 중...</li>";
-  // 내가 보낸 메시지와 받은 메시지 모두 조회
-  const q = query(
-    collection(db, "messages"),
-    where("sender", "==", username)
-  );
-  const r = query(
-    collection(db, "messages"),
-    where("receiver", "==", username)
-  );
+  const q = query(collection(db, "messages"), where("sender", "==", username));
+  const r = query(collection(db, "messages"), where("receiver", "==", username));
   const sentSnapshot = await getDocs(q);
   const receivedSnapshot = await getDocs(r);
 
@@ -70,8 +84,9 @@ async function loadChatUsers() {
   });
 }
 
-// 전체 사용자 목록 불러오기 (예시: users 컬렉션에서)
+// 전체 사용자 목록 불러오기
 async function loadAllUsers() {
+  if (!username) return;
   userSelect.innerHTML = "";
   const usersRef = collection(db, "users");
   const snapshot = await getDocs(usersRef);
@@ -86,19 +101,19 @@ async function loadAllUsers() {
   });
 }
 
-// 2. 채팅방 ID 생성 (두 사용자 이름을 정렬해서 조합)
+// 채팅방 ID 생성
 function getChatId(userA, userB) {
   return [userA, userB].sort().join("_");
 }
 
-// 3. 채팅방 열기 및 메시지 실시간 표시
+// 채팅방 열기 및 메시지 실시간 표시
 function openChat(otherUser) {
+  if (!username) return;
   currentChatUser = otherUser;
   currentChatId = getChatId(username, otherUser);
   chatWithElem.textContent = `상대: ${otherUser}`;
   messagesElem.innerHTML = "불러오는 중...";
 
-  // 기존 리스너 해제
   if (unsubscribe) unsubscribe();
 
   const q = query(
@@ -136,10 +151,10 @@ startChatBtn.onclick = () => {
   }
 };
 
-// 4. 메시지 전송
+// 메시지 전송
 sendBtn.onclick = async () => {
   const text = messageInput.value.trim();
-  if (!text || !currentChatUser) return;
+  if (!text || !currentChatUser || !username) return;
   await addDoc(collection(db, "messages"), {
     chatId: currentChatId,
     sender: username,
@@ -148,7 +163,7 @@ sendBtn.onclick = async () => {
     timestamp: serverTimestamp()
   });
   messageInput.value = "";
-  openChat(currentChatUser); // 메시지 전송 후
+  openChat(currentChatUser);
 };
 
 // Enter 키로 메시지 전송
@@ -163,6 +178,7 @@ messageInput.addEventListener("keydown", (e) => {
 
 // 채팅 상대 목록 실시간 감시 및 하이라이트
 function watchChatUsers() {
+  if (!username) return;
   const q = query(
     collection(db, "messages"),
     where("receiver", "==", username)
@@ -175,19 +191,12 @@ function watchChatUsers() {
         if (sender !== username) newUsers.add(sender);
       }
     });
-    // 목록 새로고침 및 하이라이트
     Array.from(chatListElem.children).forEach(li => {
       if (newUsers.has(li.textContent)) {
         li.style.color = "red";
       }
     });
-    // 새 메시지가 오면 채팅 상대 목록 자동 새로고침
     loadChatUsers();
     openChat(currentChatUser); 
   });
 }
-
-// 최초 사용자 목록 및 전체 사용자 목록 불러오기
-loadChatUsers();
-loadAllUsers();
-watchChatUsers();

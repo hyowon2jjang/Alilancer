@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -45,8 +45,8 @@ loginForm.addEventListener("submit", async (e) => {
       });
 
       // username을 localStorage에 저장
-      localStorage.setItem("username", username);
-      localStorage.setItem("email", email);
+      // localStorage.setItem("username", username);
+      // localStorage.setItem("email", email);
 
       messageDiv.textContent = "로그인 성공!";
       window.location.href = "index.html";
@@ -54,4 +54,20 @@ loginForm.addEventListener("submit", async (e) => {
     .catch((error) => {
       messageDiv.textContent = "이메일 또는 비밀번호가 올바르지 않습니다.";
     });
+});
+
+// 사용자 상태 변경 감지
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("uid", "==", user.uid));
+    getDocs(q).then((querySnapshot) => {
+      if (!querySnapshot.empty) {
+        const userData = querySnapshot.docs[0].data();
+        const username = userData.username;
+        console.log("username:", username);
+        // username을 화면에 표시하거나 변수로 사용
+      }
+    });
+  }
 });
