@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getFirestore, collection, query, where, getDocs, addDoc, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getFirestore, collection, query, where, getDocs, addDoc, orderBy, onSnapshot, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -32,6 +32,20 @@ let currentChatUser = null;
 let currentChatId = null;
 let unsubscribe = null;
 
+// 쿼리스트링 파싱 함수
+function getQueryParams() {
+  const params = {};
+  window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str,key,value) {
+    params[key] = decodeURIComponent(value);
+  });
+  return params;
+}
+
+const params = getQueryParams();
+let forcedChatId = params.chatId;
+let forcedRequestId = params.requestId;
+let forcedOtherUser = params.otherUser;
+
 // 인증 상태 감지 및 Firestore에서 username 조회
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -54,6 +68,41 @@ onAuthStateChanged(auth, async (user) => {
   loadChatUsers();
   loadAllUsers();
   watchChatUsers();
+
+  // 요청 데이터 표시
+  if (forcedRequestId) {
+    const reqDoc = await getDoc(doc(db, "requests", forcedRequestId));
+    if (reqDoc.exists()) {
+      const data = reqDoc.data();
+      // chat.html에 요청 정보 표시 (예시)
+      const reqDiv = document.createElement("div");
+      reqDiv.className = "request-info";
+      reqDiv.innerHTML = `
+        <h4>요청 정보</h4>
+        <div><b>제목:</b> ${data.title}</div>
+        <div><b>설명:</b> ${data.explanation}</div>
+        <div><b>조건:</b> ${data.conditions.join(", ")}</div>
+        <div><b>위치:</b> ${data.location}</div>
+        <div><b>결제:</b> ${data.payment}원</div>
+        <div><b>상태:</b> ${data.status}</div>
+      `;
+      document.body.insertBefore(reqDiv, document.getElementById("messages"));
+    }
+  }
+
+  // 자동 채팅방 오픈
+  if (forcedChatId) {
+    const usersSet = new Set();
+    const r = query(collection(db, "messages"), where("receiver", "==", username));
+    const receivedSnapshot = await getDocs(r);
+    receivedSnapshot.forEach(doc => usersSet.add(doc.data().sender));
+    usersSet.delete(username);
+
+    if (usersSet.size === 1) {
+      const otherUser = Array.from(usersSet)[0];
+      openChat(otherUser);
+    }
+  }
 });
 
 // 1. 내가 대화한 사용자 목록 불러오기

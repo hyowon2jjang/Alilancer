@@ -84,4 +84,7 @@ window.addEventListener('DOMContentLoaded', () => {
       myRequestsUl.innerHTML = `<li>불러오기 실패: ${e.message}</li>`;
     }
   });
+
+
+  
 });

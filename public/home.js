@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-import { getFirestore, collection, getDocs, query, where, addDoc, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, query, where, addDoc, onSnapshot, orderBy, setDoc, getDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDFsqb2uS61jj4mAt7Mo2MuDKL3u97ANZM",
@@ -128,15 +128,18 @@ if (addRequestBtn) { // Check if element exists
     }
 
     try {
-      await addDoc(collection(db, "requests"), {
+      const docRef = await addDoc(collection(db, "requests"), {
         location,
         title,
         explanation,
         conditions: selectedConditions,
         payment,
         username: currentUsername || "익명",
-        createdAt: new Date()
+        createdAt: new Date(),
+        status: "open" // 상태 필드 추가
       });
+
+      await setDoc(doc(db, "requests", docRef.id), { dataId: docRef.id }, { merge: true });
       alert('요청이 등록되었습니다!');
       // 입력값 초기화
       titleInput.value = '';
@@ -167,7 +170,9 @@ if (addRequestBtn) { // Check if element exists
     ul.innerHTML = ''; // Clear existing list items
 
     // Order by createdAt in descending order to show newest first
-    const q = query(collection(db, "requests"), orderBy("createdAt", "desc"));
+    const q = query(collection(db, "requests"),
+              where("username", "!=", currentUsername),
+            orderBy("createdAt", "desc"));
 
     // Set up a real-time listener for changes in the 'requests' collection
     onSnapshot(q, (snapshot) => {
@@ -211,11 +216,25 @@ if (addRequestBtn) { // Check if element exists
 
       // Add event listeners to the newly created "Accept Task" buttons
       document.querySelectorAll('.accept-task-btn').forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', async function() {
           const taskId = this.dataset.id;
-          alert(`Task ID ${taskId} 수락 로직 구현 필요!`);
-          // Here you would implement logic to update the task status in Firestore,
-          // assign it to the current user, etc.
+          if (!currentUsername) {
+            alert("로그인 후 이용 가능합니다.");
+            return;
+          }
+          // 요청 상태를 negotiating으로 변경
+          await setDoc(doc(db, "requests", taskId), { status: "negotiating", negotiator: currentUsername }, { merge: true });
+
+          // 요청 데이터 가져오기
+          const reqDoc = await getDoc(doc(db, "requests", taskId));
+          const requestData = reqDoc.data();
+          const requester = requestData.username;
+
+          // 채팅방 ID 생성 (요청자와 수락자)
+          const chatId = [requester, currentUsername].sort().join("_");
+
+          // chat.html로 이동 (요청 ID, 채팅방 ID, 상대방 username 전달)
+          window.location.href = `chat.html?chatId=${chatId}&requestId=${taskId}&otherUser=${requester}`;
         });
       });
     }, (error) => {
